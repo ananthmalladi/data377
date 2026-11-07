@@ -188,7 +188,8 @@ if __name__ == '__main__':
     # Get the data, and split into test/validation/training sets as 0.6, 0.2, 0.2.
     # path = 'C:/Users/anant/OneDrive - The University of Chicago/03 UChicago/Courses/DATA 377/Problem Set 2/data/'
     # df = pd.read_csv('retail.csv')
-    df = pd.read_csv('retail.csv')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    df = pd.read_csv(os.path.join(script_dir, 'retail.csv'))
     x = df.drop(columns=['Quantity']).to_numpy()
     y = df['Quantity'].to_numpy() 
     gen = torch.Generator().manual_seed(12)
@@ -254,11 +255,11 @@ if __name__ == '__main__':
     batch_size = 2048
     lr = 1e-3
 
-    h1_arr, h2_arr = [10], []
+    h1_arr, h2_arr = [128], []
     d1_out, d2_out = 2, 1
 
     # Model 1, 1: use negative binomial loss and 1 hidden layer
-    num_epochs_11 = 11 # Stopping around 11 epochs is optimal for early stopping
+    num_epochs_11 = 23 # Val loss is lowest at epoch 23 (from a 100-epoch run), so stop there
     net11 = MLP_emb(d_in, h1_arr, d1_out, d_emb, lr, batch_size, device)
     _, train_loss_arr, val_loss_arr = net11.fit(x_train, y_train, x_val, y_val, num_epochs_11)
 
@@ -269,9 +270,10 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2d_nb_1h_loss.png'))
 
     # Model 1, 2: use poisson loss and 1 hidden layer
-    num_epochs_12 = 60 # Stopping around 60 epochs is optimal for early stopping
+    num_epochs_12 = 52 # Val loss is lowest at epoch 52 (from a 100-epoch run), so stop there
     net12 = MLP_emb(d_in, h1_arr, d2_out, d_emb, lr, batch_size, device)
     _, train_loss_arr, val_loss_arr = net12.fit(x_train, y_train, x_val, y_val, num_epochs_12)
 
@@ -282,6 +284,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2d_poisson_1h.png'))
 
     # Model 2, 1: use negative binomial loss and 0 hidden layer
     num_epochs_21 = 20 # Stopping around 20 epochs is optimal for early stopping
@@ -295,6 +298,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2d_nb_0h.png'))
 
     # Model 2, 2: use poisson loss and 0 hidden layers 
     num_epochs_22 = 100 # Loss is still going down
@@ -308,6 +312,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2d_poisson_0h.png'))
 
 
     # Compare all four models. Both log_probs are full log-likelihoods, so the

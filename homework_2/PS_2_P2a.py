@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 # import torch 
 # import torch.nn as nn
@@ -13,7 +14,8 @@ import matplotlib.pyplot as plt
 
 # path = 'C:/Users/anant/OneDrive - The University of Chicago/03 UChicago/Courses/DATA 377/Problem Set 2/data/'
 batch_size = 8
-df = pd.read_csv('retail.csv')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+df = pd.read_csv(os.path.join(script_dir, 'retail.csv'))
 x = df.drop(columns=['Quantity']).to_numpy() # 2-dim.
 y = df['Quantity'] # 1-dim.
 

@@ -176,7 +176,8 @@ if __name__ == '__main__':
     # Get the data, and split into test/validation/training sets as 0.6, 0.2, 0.2.
     # path = 'C:/Users/anant/OneDrive - The University of Chicago/03 UChicago/Courses/DATA 377/Problem Set 2/data/'
     # df = pd.read_csv('retail.csv')
-    df = pd.read_csv('retail.csv')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    df = pd.read_csv(os.path.join(script_dir, 'retail.csv'))
     x = df.drop(columns=['Quantity']).to_numpy() # this has strings, but isok
     y = df['Quantity'].to_numpy() 
     gen = torch.Generator().manual_seed(12)
@@ -231,6 +232,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2b_nb_1h_loss.png'))
 
     # Model 1, 2: use poisson loss and 1 hidden layer
     num_epochs_12 = 20 # Stopping around 20 epochs is good enough for early stopping
@@ -244,6 +246,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2b_poisson_1h_loss.png'))
 
     # Model 2, 1: use negative binomial loss and 0 hidden layer
     num_epochs_21 = 20 # Stopping around 85 epochs is good enough for early stopping
@@ -257,6 +260,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2b_nb_0h_loss.png'))
 
     # Model 2, 2: use poisson loss and 0 hidden layers 
     num_epochs_22 = 100 # Even after 100 epochs, the validation loss is decreasing stopping
@@ -270,6 +274,7 @@ if __name__ == '__main__':
     plt.plot(range(2, len(train_loss_arr) + 1), train_loss_arr[1:], label='Training')
     plt.plot(range(2, len(val_loss_arr) + 1), val_loss_arr[1:], label='Validation')
     plt.legend() 
+    plt.savefig(os.path.join(script_dir, '2b_poisson_0h_loss.png'))
 
 
     # Compare all four models. Both log_probs are full log-likelihoods, so the

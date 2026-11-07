@@ -11,9 +11,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import time
+import os
 # import scipy.stats as scs
 
-path = 'C:/Users/anant/OneDrive - The University of Chicago/03 UChicago/Courses/DATA 377/Problem Set 2/data/'
+# path = 'C:/Users/anant/OneDrive - The University of Chicago/03 UChicago/Courses/DATA 377/Problem Set 2/data/'
 batch_size = 1024
 try:
     import torch_directml # AMD GPU via DirectML (only in the 'dml' conda env)
@@ -23,7 +24,8 @@ except ImportError:
 
 # Get the data, and split into test/validation/training sets as 0.6, 0.2, 0.2. 
 # df = pd.read_parquet(path + 'taxi_trips.parquet')
-df = pd.read_parquet('taxi_trips.parquet')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+df = pd.read_parquet(os.path.join(script_dir, 'taxi_trips.parquet'))
 x = torch.from_numpy(df.drop(columns=['trip_duration']).to_numpy().copy()) # 7-dim.
 x = x.float().to(device)
 y = torch.from_numpy(df['trip_duration'].to_numpy().copy()) # 1-dim.
@@ -64,10 +66,22 @@ if run_baseline == True:
     from sklearn.metrics import mean_squared_error as mse
     # sklearn wants numpy arrays on the CPU
     Xtr, ytr, Xv, yv = (t.cpu().numpy() for t in (x_train, y_train, x_val, y_val))
-    # Validation MSE of each (y is standardized, so just predicting the mean gives ~1)
-    print('Linear:', mse(yv, LinearRegression().fit(Xtr, ytr).predict(Xv)))
-    print('SVR:', mse(yv, SVR().fit(Xtr[:10000], ytr[:10000]).predict(Xv)))
-    print('MLP:', mse(yv, MLPRegressor(hidden_layer_sizes=(7, 7, 7), early_stopping=True).fit(Xtr, ytr).predict(Xv)))
+    # The MSE's don't mean much by themselves, since I'm using a different
+    # loss function below. Instead, I can estimate each baseline's standard
+    # deviation as sigma = sqrt(mse) of the model on its training data, and then
+    # evaluate the same loss I use for my models: (y - mu)^2 / (2 sigma^2) + log(sigma).
+    baselines = {
+        'Linear': (LinearRegression().fit(Xtr, ytr), Xtr, ytr),
+        'SVR': (SVR().fit(Xtr[:10000], ytr[:10000]), Xtr[:10000], ytr[:10000]),
+        'MLP': (MLPRegressor(hidden_layer_sizes=(7, 7, 7), early_stopping=True).fit(Xtr, ytr), Xtr, ytr),
+    }
+    for name, (model, X_fit, y_fit) in baselines.items():
+        sigma = np.sqrt(mse(y_fit, model.predict(X_fit))) # constant st. dev. from training residuals
+        mu_val = model.predict(Xv)
+        val_nll = np.mean((yv - mu_val)**2 / (2 * sigma**2) + np.log(sigma))
+        print('{}: val MSE = {:.4f}, sigma = {:.4f}, val loss = {:.4f}'.format(
+            name, mse(yv, mu_val), sigma, val_nll))
+
 
 
 class MLP(nn.Module):
@@ -186,28 +200,33 @@ for i in range(len(h_arr_lst)):
     model_lst.append(model)
 
     plt.figure()
-    plt.plot(range(1, len(model_training_loss) + 1), np.log(model_training_loss))
+    plt.plot(range(1, len(model_training_loss) + 1), np.log(model_training_loss), label='train')
     plt.xlabel('Epochs') # after {}'.format(int(len(model1_training_loss)/2)))
-    plt.ylabel('Log(Training loss)')
-    plt.title('Log(Training loss) vs. time')
+    plt.ylabel('Log(loss)')
+    plt.title('Log(loss) vs. time for model with hidden layer structure {}'.format(h_arr_lst[i]))
+    plt.plot(range(1, len(model_val_loss) + 1), np.log(model_val_loss), label='val')
+    plt.legend()
 
-    plt.figure()
-    plt.plot(range(1, len(model_val_loss) + 1), np.log(model_val_loss))
-    plt.xlabel('Epochs') # after {}'.format(int(len(model1_training_loss)/2)))
-    plt.ylabel('Log(Validation loss)')
-    plt.title('Log(Validation loss) vs. time')
+
 
 model_vals = compare_models(x_val, y_val, model_lst)
 for i in range(len(model_vals)):
     print('Validation error for model with hidden layers {}:{}'.format(\
         h_arr_lst[i], model_vals[i]))
 
-# It looks like the [7,7,7] model does the best among these, so I'll use that. 
+# Pick the model with the lowest validation NLL. (The loss drops the constant
+# term, so negative values are fine -- lower is still better.)
+best_i = int(np.argmin(model_vals))
+print('Best model: hidden layers {}'.format(h_arr_lst[best_i]))
+best = model_lst[best_i]
+best.eval()
+
+# Validation MSE of the predicted mean f_mu, to compare with the MSE baselines above
+with torch.no_grad():
+    print('Val MSE of f_mu for best model:', ((best(x_val)[0] - y_val)**2).mean().item())
 
 # I'll report the log-loss on the test set, and the classification accuracy
 # for P(trip < 45 minutes), thresholded at 0.5
-best = model_lst[-1]
-best.eval()
 with torch.no_grad():
     mu, sigma = best(x_test) # whole test set, standardized units
 t = (45 - y_train_means) / y_train_std # 45 min in standardized units
@@ -218,9 +237,5 @@ p_c = p.clamp(1e-7, 1 - 1e-7)
 print('Log-loss:', F.binary_cross_entropy(p_c, label).item())
 print('Accuracy:', ((p > 0.5).float() == label).float().mean().item())
 
-# Baseline: predict the training-set fraction of trips under 45 min 
-p0 = (y_train * y_train_std + y_train_means < 45).float().mean()
-print('Baseline log-loss:', F.binary_cross_entropy(p0.expand_as(label), label).item())
-print('Baseline accuracy:', (label == 1).float().mean().item())
 
 plt.show()
